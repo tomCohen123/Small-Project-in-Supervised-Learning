@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import time
 
 
 # from AbstractAlgorithm import AbstractAlgorithm
@@ -25,34 +26,34 @@ class ID3:
         self.features_num = len(self.train_group.columns)
         self.decision_tree = None
 
-    def ig(self, f, examples):
-        sorted_examples = examples.sort_values(f)
-        examples_size = len(examples)
-        best_barrier = 0.5 * (sorted_examples.iloc[0][f] + sorted_examples.iloc[1][f])
-        best_ig = 0
-        for i in range(examples.index.size - 1):
-            barrier = (0.5 * (sorted_examples.iloc[i][f] + sorted_examples.iloc[i+1][f]))
-            smaller_examples = sorted_examples[sorted_examples[f] < barrier]
-            bigger_equale_examples = sorted_examples[sorted_examples[f] >= barrier]
+    def ig(self, f, examples, examples_entropy):
+        sorted_examples = (examples[f].sort_values()).reset_index(drop=True)
+        examples_size = len(sorted_examples)
 
-            ig = self.calculateEntropy(examples) - ((len(smaller_examples) / examples_size) * self.calculateEntropy(smaller_examples)
+        best_barrier = 0.5 * (sorted_examples[0] + sorted_examples[1])
+
+        best_ig = -np.inf
+        for i in range(examples.index.size - 1):
+            barrier = (0.5 * (sorted_examples[i] + sorted_examples[i+1]))
+            smaller_examples = examples[examples[f] < barrier]
+            bigger_equale_examples = examples[examples[f] >= barrier]
+
+            ig = examples_entropy - ((len(smaller_examples) / examples_size) * self.calculateEntropy(smaller_examples)
                                                     + (len(bigger_equale_examples) / examples_size) * self.calculateEntropy(bigger_equale_examples))
-            if (ig > best_ig):
+            if (ig >= best_ig):
                 best_ig = ig
                 best_barrier = barrier
 
 
         return ig, best_barrier
 
-
-
     def maxIg(self, examples):
-
-        max_ig, best_barrier = -1, -1
+        max_ig, best_barrier = -np.inf, -1
         max_f = -1
+        examples_entropy = self.calculateEntropy(examples)
         for f in range(1, self.features_num):
-            ig, barrier = self.ig(examples.columns[f], examples)
-            if ig > max_ig:
+            ig, barrier = self.ig(examples.columns[f], examples, examples_entropy)
+            if ig >= max_ig:
                 max_ig, best_barrier = ig, barrier
                 max_f = f
         return max_f, best_barrier
@@ -60,16 +61,18 @@ class ID3:
     def majorityClass(self, examples):
         m = 0
         b = 0
-        for e in examples:
-            if e[0] == 'M':
+        examples_to_iterate = np.array(examples["diagnosis"])
+        for diagnosis in examples_to_iterate:
+            if diagnosis == 'M':
                 m += 1
             else:
                 b += 1
         return 'M' if m > b else 'B'
 
     def isConsistentNode(self, examples, majority_val):
-        for e in examples:
-            if e[0] != majority_val:
+        examples_to_iterate = np.array(examples["diagnosis"])
+        for diagnosis in examples_to_iterate:
+            if diagnosis != majority_val:
                 return False
         return True
 
@@ -88,12 +91,12 @@ class ID3:
         r_son_exaples = examples[examples[f_col_name] >= barrier]
         l_son = self.tdidt(l_son_examples, selectFeature)
         r_son = self.tdidt(r_son_exaples, selectFeature)
-        return Node(f, barrier, l_son, r_son)
+        return Node(feature=f, barrier=barrier, l_son=l_son, r_son=r_son)
 
     def classifier(self,e,node):
         if node.label:
             return node.label
-        if e[node.l_son.feature] < node.l_son.barrier:
+        if e[node.feature] < node.barrier:
             return self.classifier(e, node.l_son)
         else:
             return self.classifier(e, node.r_son)
@@ -102,22 +105,20 @@ class ID3:
 
 
 
-    def predict(self, ):
+    def predict(self):
         examples_num = len(self.test_group.index)
         corrects_num = 0
-        for e in self.test_group:
-            if self.classifier(e,self.decision_tree) == e['diagnosis']:
+        examples_to_iterate = np.array(self.test_group)
+        for e in examples_to_iterate:
+            if self.classifier(e,self.decision_tree) == e[0]:
                 corrects_num += 1
-        return corrects_num / examples_num
+        print(corrects_num / examples_num)
 
     def calculateEntropy(self, examples):
         examples_len = len(examples)
         if(examples_len == 0):
             return 0
-        m_counter = 0
-        for idx in examples.index:
-            if examples.loc[idx][0] == 'M':
-                m_counter += 1
+        m_counter = len(examples[examples["diagnosis"] == 'M']) #.count()["diagnosis"]
         b_counter = examples_len - m_counter
         prob_sick = m_counter / examples_len
         prob_healthy = b_counter / examples_len
@@ -132,9 +133,11 @@ class ID3:
 
 
 def main():
+    start = time.time()
     id3 = ID3()
     id3.fit()
     id3.predict()
+    print(time.time() - start)
 
 
 if __name__ == "__main__":
