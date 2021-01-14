@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import time
+#import time
 
 
 # from AbstractAlgorithm import AbstractAlgorithm
@@ -34,18 +34,18 @@ class ID3:
 
         best_ig = -np.inf
         for i in range(examples.index.size - 1):
-            barrier = (0.5 * (sorted_examples[i] + sorted_examples[i+1]))
+            barrier = ((sorted_examples[i] + sorted_examples[i+1])/2)
             smaller_examples = examples[examples[f] < barrier]
             bigger_equale_examples = examples[examples[f] >= barrier]
 
             ig = examples_entropy - ((len(smaller_examples) / examples_size) * self.calculateEntropy(smaller_examples)
                                                     + (len(bigger_equale_examples) / examples_size) * self.calculateEntropy(bigger_equale_examples))
-            if (ig >= best_ig):
+            if (ig > best_ig):
                 best_ig = ig
                 best_barrier = barrier
 
 
-        return ig, best_barrier
+        return best_ig, best_barrier
 
     def maxIg(self, examples):
         max_ig, best_barrier = -np.inf, -1
@@ -102,9 +102,6 @@ class ID3:
             return self.classifier(e, node.r_son)
 
 
-
-
-
     def predict(self):
         examples_num = len(self.test_group.index)
         corrects_num = 0
@@ -112,32 +109,29 @@ class ID3:
         for e in examples_to_iterate:
             if self.classifier(e,self.decision_tree) == e[0]:
                 corrects_num += 1
-        print(corrects_num / examples_num)
+        print("ID3 accuracy is:", corrects_num / examples_num)
 
     def calculateEntropy(self, examples):
         examples_len = len(examples)
         if(examples_len == 0):
             return 0
-        m_counter = len(examples[examples["diagnosis"] == 'M']) #.count()["diagnosis"]
-        b_counter = examples_len - m_counter
-        prob_sick = m_counter / examples_len
+        b_counter = len(examples[examples["diagnosis"] == 'B']) #.count()["diagnosis"]
         prob_healthy = b_counter / examples_len
+        prob_sick = 1-prob_healthy
         arg1 = 0
         arg2 = 0
         if prob_sick:
             arg1 = prob_sick * np.log2(prob_sick)
         if prob_healthy:
             arg2 = prob_healthy*np.log2(prob_healthy)
-        return -1 * (arg1 + arg2)
+        return -(arg1 + arg2)
 
 
 
 def main():
-    start = time.time()
     id3 = ID3()
     id3.fit()
     id3.predict()
-    print(time.time() - start)
 
 
 if __name__ == "__main__":
