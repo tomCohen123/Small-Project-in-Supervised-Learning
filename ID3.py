@@ -4,21 +4,24 @@ from sklearn.model_selection import KFold
 import matplotlib.pyplot as plt
 #import time
 
-
-
 # from AbstractAlgorithm import AbstractAlgorithm
 
 ######### important thoughts ##############
 
 # we dont have empty leaf problem
 # we uses all features in every step to calc max_ig
+#todo: change M_values
 M_values = [1, 2, 3, 5, 8, 16, 30, 50, 80, 120]
+#M_values = [8, 16, 30]
 train_group = pd.read_csv(r"C:\Users\HP\PycharmProjects\pythonProject\hw3\train.csv")
 test_group = pd.read_csv(r"C:\Users\HP\PycharmProjects\pythonProject\hw3\test.csv")
 features_num = len(train_group.columns)
-features= train_group.columns
-train_row_indices= list(range(1,len(train_group)+1))
-test_row_indices= list(range(1,len(test_group)+1))
+features = list(train_group.columns)
+features.pop(0)
+train_row_indices = list(range(0,len(train_group)))
+train_group_dict = train_group.to_dict(orient='list')
+test_row_indices = list(range(0,len(test_group)))
+test_group_dict = test_group.to_dict(orient='list')
 
 class Node:
     def __init__(self, label=None, feature=None, barrier=None, l_son=None, r_son=None):
@@ -30,39 +33,48 @@ class Node:
 
 
 class ID3:
-    def __init__(self, limit, is_early_pruning):
+    def __init__(self, limit, is_early_pruning, predict_dict):
         self.decision_tree = None
         self.is_early_pruning= is_early_pruning
         self.limit = limit
+        self.predict_dict = predict_dict
+
+    def splitIndexs(self,f,barrier,examples_indices):
+        smaller_examples_indices = []
+        bigger_equale_examples_indices = []
+        for idx in examples_indices:
+            if train_group_dict[f][idx] < barrier:
+                smaller_examples_indices.append(idx)
+            else:
+                bigger_equale_examples_indices.append(idx)
+        return smaller_examples_indices, bigger_equale_examples_indices
+
 
     def ig(self, f, examples_indices, examples_entropy):
-        filtered_df = train_group.filter(examples_indices, axis=0)
-        sorted_examples = (filtered_df[f].sort_values()).reset_index(drop=True)
-        examples_size = len(sorted_examples)
-
-        best_barrier = 0.5 * (sorted_examples[0] + sorted_examples[1])
+        values = [train_group_dict[f][idx] for idx in examples_indices]
+        values.sort()
+        examples_size = len(values)
+        best_barrier = 0.5 * (values[0] + values[1])
 
         best_ig = -np.inf
-        for i in range(filtered_df.index.size - 1):
-            barrier = ((sorted_examples[i] + sorted_examples[i+1])/2)
-            smaller_examples_indices = filtered_df[filtered_df[f] < barrier].index
-            bigger_equale_examples_indices = filtered_df[filtered_df[f] >= barrier].index
+        for i in range(examples_size - 1):
+            barrier = ((values[i] + values[i+1])/2)
 
-            ig = examples_entropy - ((smaller_examples_indices.size / examples_size) * self.calculateEntropy(smaller_examples_indices)
-                                                    + (bigger_equale_examples_indices.size / examples_size) * self.calculateEntropy(bigger_equale_examples_indices))
-            if (ig > best_ig):
+            smaller_examples_indices, bigger_equale_examples_indices = self.splitIndexs(f,barrier, examples_indices)
+            ig = examples_entropy - ((len(smaller_examples_indices) / examples_size) * self.calculateEntropy(smaller_examples_indices)
+                                                    + (len(bigger_equale_examples_indices) / examples_size) * self.calculateEntropy(bigger_equale_examples_indices))
+            if ig > best_ig:
                 best_ig = ig
                 best_barrier = barrier
-
 
         return best_ig, best_barrier
 
     def maxIg(self, examples_indices):
         max_ig, best_barrier = -np.inf, -1
-        max_f = -1
+        max_f = None
         examples_entropy = self.calculateEntropy(examples_indices)
-        for f in range(1, features_num):
-            ig, barrier = self.ig(features[f], examples_indices, examples_entropy)
+        for f in features:
+            ig, barrier = self.ig(f, examples_indices, examples_entropy)
             if ig >= max_ig:
                 max_ig, best_barrier = ig, barrier
                 max_f = f
@@ -71,7 +83,7 @@ class ID3:
     def majorityClass(self, examples_indices):
         m = 0
         b = 0
-        examples_to_iterate = np.array(train_group.filter(examples_indices, axis=0)["diagnosis"])
+        examples_to_iterate = [train_group_dict["diagnosis"][idx] for idx in examples_indices]
         for diagnosis in examples_to_iterate:
             if diagnosis == 'M':
                 m += 1
@@ -80,46 +92,41 @@ class ID3:
         return 'M' if m > b else 'B'
 
     def isConsistentNode(self, examples_indices, majority_val):
-        examples_to_iterate = np.array(train_group.filter(examples_indices, axis=0)["diagnosis"])
+        examples_to_iterate = [train_group_dict["diagnosis"][idx] for idx in examples_indices]
         for diagnosis in examples_to_iterate:
             if diagnosis != majority_val:
                 return False
         return True
 
     def fit(self, train):
-        self.decision_tree = self.tdidt(train, self.maxIg,self.majorityClass(train), False)
-
+        self.decision_tree = self.tdidt(train, self.maxIg, self.majorityClass(train), False)
 
     def tdidt(self, examples_indices, selectFeature,default,is_early_pruning):
-        if self.is_early_pruning and len(examples_indices)<self.limit:
+        if self.is_early_pruning and len(examples_indices) < self.limit:
             return Node(label=default)
         c = self.majorityClass(examples_indices)
         if self.isConsistentNode(examples_indices, c):
             return Node(label=c)
         f, barrier = selectFeature(examples_indices)
-        f_col_name = features[f]
-        filtered_df =train_group.filter(examples_indices, axis=0)
-        l_son_examples_indices = (filtered_df[filtered_df[f_col_name]< barrier]).index
-        r_son_examples_indices = (filtered_df[filtered_df[f_col_name] >= barrier]).index
+        l_son_examples_indices, r_son_examples_indices = self.splitIndexs(f, barrier, examples_indices)
         l_son = self.tdidt(l_son_examples_indices, selectFeature, c, is_early_pruning)
         r_son = self.tdidt(r_son_examples_indices, selectFeature, c, is_early_pruning)
         return Node(feature=f, barrier=barrier, l_son=l_son, r_son=r_son)
 
-    def classifier(self,e,node):
+    def classifier(self,e_index,node):
         if node.label:
             return node.label
-        if e[node.feature] < node.barrier:
-            return self.classifier(e, node.l_son)
+        if self.predict_dict[node.feature][e_index] < node.barrier:
+            return self.classifier(e_index, node.l_son)
         else:
-            return self.classifier(e, node.r_son)
+            return self.classifier(e_index, node.r_son)
 
 
-    def predict(self, test):
-        examples_num = len(test.index)
+    def predict(self, test_row_indices):
+        examples_num = len(test_row_indices)
         corrects_num = 0
-        examples_to_iterate = np.array(test)
-        for e in examples_to_iterate:
-            if self.classifier(e,self.decision_tree) == e[0]:
+        for e_idx in test_row_indices:
+            if self.classifier(e_idx, self.decision_tree) == self.predict_dict["diagnosis"][e_idx]:
                 corrects_num += 1
         result = corrects_num / examples_num
         return result
@@ -128,8 +135,11 @@ class ID3:
         examples_len = len(examples_indices)
         if(examples_len == 0):
             return 0
-        filtered_df = train_group.filter(examples_indices, axis=0)
-        b_counter = len(filtered_df[filtered_df["diagnosis"] == 'B']) #.count()["diagnosis"]
+        diagnoses = [train_group_dict['diagnosis'][idx] for idx in examples_indices]
+        b_counter = 0
+        for diagnosis in diagnoses:
+            if diagnosis == 'B':
+                b_counter += 1
         prob_healthy = b_counter / examples_len
         prob_sick = 1-prob_healthy
         arg1 = 0
@@ -141,36 +151,38 @@ class ID3:
         return -(arg1 + arg2)
 
 #############end_of_class_id3####################################
-    #just run it
+
+"""
+To run uncomment the line with experiment() in mine 
+"""
 def experiment():
-    kf= KFold(n_splits=5, shuffle=True, random_state=204576946)
-    splited= kf.split(train_group)
     precision_by_m = []
     for M in M_values:
+        kf = KFold(n_splits=5, shuffle=True, random_state=204576946)
+        splited = kf.split(train_group)
         precisions_for_specific_m = []
         for train_index, test_index in splited:
-            train_indices = train_index.index
-            precisions_for_specific_m.append(create_experiment(train_indices, test_index, M=M))
+            precisions_for_specific_m.append(create_experiment(train_index, test_index, M=M))
         precision_by_m.append(np.average(precisions_for_specific_m))
-    ax = plt.subplot()
-    ax.plot(M_values, precision_by_m)
-    ax.set(xlabel='Min examples for node decision', ylabel='Accuracy')
+
+    figure, ax = plt.subplots()
+    ax.plot(M_values, precision_by_m, marker='o')
+    ax.set(xlabel='Min examples for node decision', ylabel='Accuracy', title='Accuracy By M')
     plt.show()
 
-
-
-def create_experiment(train_row_indices, test,  M, is_earlly_pruning=True):
-    id3 = ID3(is_early_pruning=is_earlly_pruning, limit = M)
+def create_experiment(train_row_indices, test_row_indices,  M, is_earlly_pruning=True, predict_dict= train_group_dict):
+    id3 = ID3(is_early_pruning=is_earlly_pruning, limit = M, predict_dict=predict_dict)
     id3.fit(train_row_indices)
-    return id3.predict(test)
+    return id3.predict(test_row_indices)
 
- #this is the function for ex_3_4
+#this is the function for ex_3_4
 
 def ex_3_4():
     pass
 
 def main():
-    print("ID3 accuracy is:", create_experiment(train_row_indices= train_row_indices, test= test_group,M=None,is_earlly_pruning=False))
+    print("ID3 accuracy is:", create_experiment(train_row_indices, test_row_indices, None, False, test_group_dict))
+    experiment()
 
 
 

@@ -4,13 +4,20 @@ import matplotlib.pyplot as plt
 
 
 df = pd.read_csv(r"C:\Users\HP\PycharmProjects\pythonProject\hw3\train.csv")
-examples_indices = [1,8,3]
-a=df.filter(examples_indices, axis=0)#["diagnosis"]
-index_list = a.index
+# examples_indices = [1,8,3]
+# a=df.filter(examples_indices, axis=0)#["diagnosis"]
+# index_list = a.index
+# print(train_group_dict['diagnosis'][0])
+# print(train_group_dict['diagnosis'][1])
 # features = df.columns
 #
 #
 # print(features)
+
+list = [14,2,4]
+list.sort()
+print(0.5*(list[0]+list[1]))
+print(list)
 
 #df = np.genfromtxt(r"C:\Users\HP\PycharmProjects\pythonProject\hw3\train.csv", delimiter=',',)
 #print(df[0])
