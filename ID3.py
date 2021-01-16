@@ -2,17 +2,13 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import KFold
 import matplotlib.pyplot as plt
-#import time
-
-# from AbstractAlgorithm import AbstractAlgorithm
 
 ######### important thoughts ##############
 
 # we dont have empty leaf problem
 # we uses all features in every step to calc max_ig
-#todo: change M_values
-M_values = [1, 2, 3, 5, 8, 16, 30, 50, 80, 120]
-#M_values = [8, 16, 30]
+
+M_values = [1, 3, 9, 15, 30, 45, 60, 90]
 train_group = pd.read_csv(r"C:\Users\HP\PycharmProjects\pythonProject\hw3\train.csv")
 test_group = pd.read_csv(r"C:\Users\HP\PycharmProjects\pythonProject\hw3\test.csv")
 features_num = len(train_group.columns)
@@ -22,6 +18,7 @@ train_row_indices = list(range(0,len(train_group)))
 train_group_dict = train_group.to_dict(orient='list')
 test_row_indices = list(range(0,len(test_group)))
 test_group_dict = test_group.to_dict(orient='list')
+
 
 class Node:
     def __init__(self, label=None, feature=None, barrier=None, l_son=None, r_son=None):
@@ -39,15 +36,6 @@ class ID3:
         self.limit = limit
         self.predict_dict = predict_dict
 
-    def splitIndexs(self,f,barrier,examples_indices):
-        smaller_examples_indices = []
-        bigger_equale_examples_indices = []
-        for idx in examples_indices:
-            if train_group_dict[f][idx] < barrier:
-                smaller_examples_indices.append(idx)
-            else:
-                bigger_equale_examples_indices.append(idx)
-        return smaller_examples_indices, bigger_equale_examples_indices
 
 
     def ig(self, f, examples_indices, examples_entropy):
@@ -60,7 +48,7 @@ class ID3:
         for i in range(examples_size - 1):
             barrier = ((values[i] + values[i+1])/2)
 
-            smaller_examples_indices, bigger_equale_examples_indices = self.splitIndexs(f,barrier, examples_indices)
+            smaller_examples_indices, bigger_equale_examples_indices = splitIndexs(f,barrier, examples_indices)
             ig = examples_entropy - ((len(smaller_examples_indices) / examples_size) * self.calculateEntropy(smaller_examples_indices)
                                                     + (len(bigger_equale_examples_indices) / examples_size) * self.calculateEntropy(bigger_equale_examples_indices))
             if ig > best_ig:
@@ -108,13 +96,13 @@ class ID3:
         if self.isConsistentNode(examples_indices, c):
             return Node(label=c)
         f, barrier = selectFeature(examples_indices)
-        l_son_examples_indices, r_son_examples_indices = self.splitIndexs(f, barrier, examples_indices)
+        l_son_examples_indices, r_son_examples_indices = splitIndexs(f, barrier, examples_indices)
         l_son = self.tdidt(l_son_examples_indices, selectFeature, c, is_early_pruning)
         r_son = self.tdidt(r_son_examples_indices, selectFeature, c, is_early_pruning)
-        return Node(feature=f, barrier=barrier, l_son=l_son, r_son=r_son)
+        return Node(feature=f, barrier=barrier, l_son=l_son, r_son=r_son, label=c)
 
     def classifier(self,e_index,node):
-        if node.label:
+        if node.l_son==None and node.r_son==None:
             return node.label
         if self.predict_dict[node.feature][e_index] < node.barrier:
             return self.classifier(e_index, node.l_son)
@@ -128,8 +116,21 @@ class ID3:
         for e_idx in test_row_indices:
             if self.classifier(e_idx, self.decision_tree) == self.predict_dict["diagnosis"][e_idx]:
                 corrects_num += 1
-        result = corrects_num / examples_num
-        return result
+
+        return corrects_num / examples_num
+
+    def predictLoss(self, test_row_indices):
+        examples_num = len(test_row_indices)
+        fp = 0
+        fn = 0
+        for e_idx in test_row_indices:
+            if self.classifier(e_idx, self.decision_tree) != self.predict_dict["diagnosis"][e_idx]:
+                if self.predict_dict["diagnosis"][e_idx] == 'M':
+                    fn+=1
+                else:
+                    fp +=1
+
+        return (0.1*fp+fn)/examples_num
 
     def calculateEntropy(self, examples_indices):
         examples_len = len(examples_indices)
@@ -152,18 +153,44 @@ class ID3:
 
 #############end_of_class_id3####################################
 
+def splitIndexs(f, barrier, examples_indices):
+    smaller_examples_indices = []
+    bigger_equale_examples_indices = []
+    for idx in examples_indices:
+        if train_group_dict[f][idx] < barrier:
+            smaller_examples_indices.append(idx)
+        else:
+            bigger_equale_examples_indices.append(idx)
+    return smaller_examples_indices, bigger_equale_examples_indices
+
+
+##end_of_helpers_for_id3
 """
 To run uncomment the line with experiment() in mine 
+Finds best M and runs id3 with it and prints its accuracy 
 """
+
+
+
 def experiment():
     precision_by_m = []
+    kf = KFold(n_splits=5, shuffle=True, random_state=204576946)
     for M in M_values:
-        kf = KFold(n_splits=5, shuffle=True, random_state=204576946)
         splited = kf.split(train_group)
         precisions_for_specific_m = []
         for train_index, test_index in splited:
             precisions_for_specific_m.append(create_experiment(train_index, test_index, M=M))
         precision_by_m.append(np.average(precisions_for_specific_m))
+
+    best_accurcy = precision_by_m[0]
+    best_M = M_values[0]
+    for i in range(len(precision_by_m)):
+        if precision_by_m[i] > best_accurcy:
+            best_M= M_values[i]
+
+    print("Id3 accuracy with best M is:"
+         ,create_experiment(train_row_indices, test_row_indices,
+          best_M,is_earlly_pruning=True, predict_dict=test_group_dict))
 
     figure, ax = plt.subplots()
     ax.plot(M_values, precision_by_m, marker='o')
@@ -175,14 +202,19 @@ def create_experiment(train_row_indices, test_row_indices,  M, is_earlly_pruning
     id3.fit(train_row_indices)
     return id3.predict(test_row_indices)
 
-#this is the function for ex_3_4
+def checkID3WithBestMLoss():
+    # because best M is 1 I run Id3 algo with no pruning
+    id3 = ID3(limit= None, is_early_pruning= False, predict_dict=test_group_dict)
+    id3.fit(train_row_indices)
+    print("ID3 loss before improvment is", id3.predictLoss(test_row_indices))
 
-def ex_3_4():
-    pass
+
 
 def main():
     print("ID3 accuracy is:", create_experiment(train_row_indices, test_row_indices, None, False, test_group_dict))
-    experiment()
+    #experiment()
+    #checkID3WithBestMLoss()
+
 
 
 
