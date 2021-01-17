@@ -9,8 +9,10 @@ import matplotlib.pyplot as plt
 # we uses all features in every step to calc max_ig
 
 M_values = [1, 3, 9, 15, 30, 45, 60, 90]
-train_group = pd.read_csv(r"C:\Users\HP\PycharmProjects\pythonProject\hw3\train.csv")
-test_group = pd.read_csv(r"C:\Users\HP\PycharmProjects\pythonProject\hw3\test.csv")
+#todo: change back to oringinal train and test
+
+train_group = pd.read_csv("train.csv")
+test_group = pd.read_csv("test.csv")
 features_num = len(train_group.columns)
 features = list(train_group.columns)
 features.pop(0)
@@ -211,9 +213,10 @@ def checkID3WithBestMLoss():
 
 
 def main():
-    print("ID3 accuracy is:", create_experiment(train_row_indices, test_row_indices, None, False, test_group_dict))
+    print(create_experiment(train_row_indices, test_row_indices, None, False, test_group_dict))
     #experiment()
     #checkID3WithBestMLoss()
+
 
 
 

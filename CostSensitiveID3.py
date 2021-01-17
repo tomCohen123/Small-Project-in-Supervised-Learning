@@ -1,12 +1,8 @@
 import ID3 as id_three
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import KFold
-import matplotlib.pyplot as plt
-
 
 # todo: what experiments?
 # todo: train data preprocessing?
+# todo: change v group to be part of train
 
 id3 = id_three.ID3(is_early_pruning=False, limit=None, predict_dict=id_three.test_group_dict)
 
@@ -44,7 +40,7 @@ def main():
     # because my optimal m was 1, it means no prune, i use the algorithem with no pruning
     id3.fit(id_three.train_row_indices)
     id3.decision_tree = latePruning(id3.decision_tree, id_three.test_row_indices)
-    print("Improved Loss is", id3.predictLoss(id_three.test_row_indices))
+    print(id3.predictLoss(id_three.test_row_indices))
 
 
 if __name__ == "__main__":
