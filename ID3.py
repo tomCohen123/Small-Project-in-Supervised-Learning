@@ -172,8 +172,6 @@ To run uncomment the line with experiment() in mine
 Finds best M and runs id3 with it and prints its accuracy 
 """
 
-
-
 def experiment():
     precision_by_m = []
     kf = KFold(n_splits=5, shuffle=True, random_state=204576946)

@@ -1,86 +1,130 @@
 import ID3 as id_three
+import numpy as np
+from sklearn.model_selection import KFold
+import matplotlib.pyplot as plt
 
-# todo: what experiments?
-# todo: train data preprocessing?
-# todo: change v group to be part of train
-# todo: use a change of entropy?
-
-#id3 = id_three.ID3(is_early_pruning=False, limit=None, predict_dict=id_three.test_group_dict)
+"""data preprocessing is allowed"""
 
 class CostSensitiveID3(id_three.ID3):
-    def __init__(self,  is_early_pruning, limit, predict_dict, ):
+    def __init__(self,  is_early_pruning, limit, predict_dict,consistent_node_threshold):
         id_three.ID3.__init__(self,limit=limit, is_early_pruning= is_early_pruning, predict_dict= predict_dict)
+        self.consistent_node_threshold = consistent_node_threshold
 
-    def latePruning(self, node, v):
-        if node.l_son is None and node.r_son is None:
-            return node
+    def isConsistentNode(self, examples_indices, majority_val):
+        examples_to_iterate = [id_three.train_group_dict["diagnosis"][idx] for idx in examples_indices]
+        m_counter = 0
+        for diagnosis in examples_to_iterate:
+            if diagnosis == 'M':
+                m_counter += 1
+        if m_counter/len(examples_indices) >= self.consistent_node_threshold:
+            return True
+        else:
+            return True if m_counter == 0 else False
 
-        smaller_v, bigger_equale_v = id_three.splitIndexs(f=node.feature, barrier=node.barrier, examples_indices=v)
-        node.l_son = self.latePruning(node.l_son, smaller_v)
-        node.r_son = self.latePruning(node.r_son, bigger_equale_v)
+    def calculateEntropy(self, examples_indices):
+         examples_len = len(examples_indices)
+         if(examples_len == 0):
+             return 0
+         diagnoses = [id_three.train_group_dict['diagnosis'][idx] for idx in examples_indices]
+         b_counter = 0
+         for diagnosis in diagnoses:
+             if diagnosis == 'B':
+                 b_counter += 1
+         prob_healthy = b_counter / examples_len
+         prob_sick = 1-prob_healthy
+         arg1 = 0
+         arg2 = 0
 
-        err_prune = 0
-        err_no_prune = 0
-        for idx in v:
-            v_idx_label = id_three.train_group_dict['diagnosis'][idx]
-            err_prune += evaluate(v_idx_label, node.label)
-            err_no_prune += evaluate(v_idx_label, self.classifier(idx, node))
+         if prob_sick:
+             arg1 = prob_sick * np.log2(prob_sick)
+         if prob_healthy:
+             arg2 = prob_healthy*np.log2(prob_healthy)
 
-        if err_prune < err_no_prune:
-            node.f = None
-            node.l_son = None
-            node.r_son = None
-
-        return node
-
-def evaluate(v_idx_label, tree_label):
-    if v_idx_label == tree_label:
-        return 0
-    return 9 if v_idx_label == 'M' else 1
+         return 0 if prob_sick >= self.consistent_node_threshold else -(arg1 + arg2)
 
 
+def filterTrainDataByEuclideanDist(euclidean_dist_threshold, filter_start_idx):
+    delete_from_database = []
+    for fr_idx in id_three.train_row_indices[filter_start_idx:]:
+        first_row_f_values = np.array([id_three.train_group_dict[f][fr_idx] for f in id_three.features])
+        first_row_diagnosis = id_three.train_group_dict["diagnosis"][fr_idx]
+        close_and_different_label = []
+        for r_idx in id_three.train_row_indices[fr_idx + 1:]:
+            f_values = np.array([id_three.train_group_dict[f][r_idx] for f in id_three.features])
+            f_diagnosis = id_three.train_group_dict["diagnosis"][r_idx]
+            if np.linalg.norm(
+                    first_row_f_values - f_values) < euclidean_dist_threshold and first_row_diagnosis != f_diagnosis:
+                close_and_different_label.append(r_idx)
+        if len(close_and_different_label):
+            delete_from_database += close_and_different_label
+            delete_from_database.append(fr_idx)
 
+    # i new that there are rows that are close with different diagnosis so i appended first row
+    return set(delete_from_database)
 
 """
-v must be a part of train test. Thus we need to split train into 2 groups: actual training group and validation group.
-I started from taking first 50 indices of train for validation because it seemed to me
-a logical number, and the rest to actual training.
-Then each iteration i took the 50 next indices from the actual train group and add them to the validation group,  
-until 50 indexes left in the train group. 
+in the experiments i use k fold valdiation on train group  with k= 5 to choose:
+1.best threshold for determining if node is consistent (i use it to determine if a node is a leaf and for entropy calculation
+2.best minimum Euclidean distance for removing 2 examples that are closer than that distance and have different labels,
+I do both searches to decrease over fitting to train data set.      
 """
-def chooseVExperiment():
-    experiment_id3 = CostSensitiveID3(is_early_pruning=False, limit=None, predict_dict=id_three.train_group_dict)
-    threshold = 1
-    ###loss is between 0 to 1 thus if i intialized it to that value to be sure best_loss will be updated in first iteration.
+def experiments():
+    """1. - best threshold experiment"""
     best_loss = 2
-    best_threshold = 1
-    train_group_len = len(id_three.train_row_indices)
+    best_threshold = None
+    kf = KFold(n_splits=5, shuffle=True, random_state=204576946)
+    average_lost_list = []
+    for threshold in [0.95, 0.96, 0.97, 0.98, 0.99]:
+        id3 = CostSensitiveID3(False, None, id_three.train_group_dict, threshold)
+        loss_list = []
+        for train_index, test_index in kf.split(id_three.train_group):
+            id3.fit(train_index)
+            loss_list.append(id3.predictLoss(test_index))
+        everaged_loss = np.average(loss_list)
+        average_lost_list.append(everaged_loss)
+        if everaged_loss < best_loss:
+            best_loss = everaged_loss
+            best_threshold = threshold
 
-    while train_group_len-threshold >= 30:
-        experiment_id3.fit(id_three.train_row_indices[threshold:])
-        experiment_id3.decision_tree = experiment_id3.latePruning(experiment_id3.decision_tree, id_three.train_row_indices[:50])
-        cur_loss = experiment_id3.predictLoss(id_three.train_row_indices[50:100])
+    """drawing graph for threshold experiment"""
+    figure, ax = plt.subplots()
+    ax.plot([0.95, 0.96, 0.97, 0.98, 0.99], average_lost_list, marker='o')
+    ax.set(xlabel='threshold', ylabel='loss', title='loss By threshold')
+    plt.show()
+
+    """2. - best euclidean dist experiment"""
+    best_loss = 2
+    best_euclidean_dist = None
+    id3 = CostSensitiveID3(False, None, id_three.train_group_dict, 1)
+    validation_group = id_three.train_row_indices[:50]
+    dist_loss_list = []
+    for euclidean_dist in [100, 125, 150, 175, 200]:
+        # i gave a threshold of 1 to run algorithm with no change in entropy calculation and is consistent node determination
+        id3.fit(list(set(id_three.train_row_indices[50:]) - filterTrainDataByEuclideanDist(euclidean_dist,50)))
+        cur_loss = id3.predictLoss(validation_group)
+        dist_loss_list.append(cur_loss)
         if cur_loss < best_loss:
             best_loss = cur_loss
-            best_threshold = threshold
-        threshold += 50
-    print(best_threshold)
-    print(best_loss)
+            best_euclidean_dist = euclidean_dist
 
+    """drawing graph for threshold experiment"""
+    figure, ax = plt.subplots()
+    ax.plot([100, 125, 150, 175, 200], dist_loss_list, marker='o')
+    ax.set(xlabel='euclidean dist threshold', ylabel='loss', title='loss By euclidean dist threshold')
+    plt.show()
+
+    return best_threshold, best_euclidean_dist
 
 
 def main():
-    # because my optimal m was 1, it means no prune, i use the algorithem with no pruning
-#todo: uncomment below
-    id3 = CostSensitiveID3(is_early_pruning=False, limit=None, predict_dict=id_three.train_group_dict)
-    id3.fit(id_three.train_row_indices[50:])
-    id3.decision_tree = id3.latePruning(id3.decision_tree, id_three.train_row_indices[:50])
+    # because my optimal m was 1, it means no prune, i use the algorithm with no pruning
+    id3 = CostSensitiveID3(is_early_pruning=False, limit=None, predict_dict=id_three.train_group_dict,
+                           consistent_node_threshold=0.99)
+    id3.fit(list(set(id_three.train_row_indices)-filterTrainDataByEuclideanDist(200, 0)))
     id3.predict_dict=id_three.test_group_dict
     print(id3.predictLoss(id_three.test_row_indices))
-# todo: uncomment above
+    print(experiments())
 
-# todo: comment below
-    #chooseVExperiment()
-# todo: comment above
+
 if __name__ == "__main__":
     main()

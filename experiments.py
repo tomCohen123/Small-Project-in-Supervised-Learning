@@ -9,11 +9,11 @@ train_group_dict = df.to_dict(orient='list')
 
 # l = df.loc[0]
 
-l =[0,1,2,3]
 
-s = l[0:2]
+r=[3,4,4]
+t={r}
 
-print(s)
+print(t)
 
 # vec1=[]
 # vec2=[]
@@ -68,4 +68,82 @@ print(s)
 
 
 
+""" late pruning function that work with costSensitiveId3 
 
+
+    def latePruning(self, node, v):
+        if node.l_son is None and node.r_son is None:
+            return node
+
+        smaller_v, bigger_equale_v = id_three.splitIndexs(f=node.feature, barrier=node.barrier, examples_indices=v)
+        node.l_son = self.latePruning(node.l_son, smaller_v)
+        node.r_son = self.latePruning(node.r_son, bigger_equale_v)
+
+        err_prune = 0
+        err_no_prune = 0
+        for idx in v:
+            v_idx_label = id_three.train_group_dict['diagnosis'][idx]
+            err_prune += evaluate(v_idx_label, node.label)
+            err_no_prune += evaluate(v_idx_label, self.classifier(idx, node))
+
+        if err_prune < err_no_prune:
+            node.f = None
+            node.l_son = None
+            node.r_son = None
+
+        return node
+
+#define below out of class cost sensitive!
+
+def evaluate(v_idx_label, tree_label):
+    if v_idx_label == tree_label:
+        return 0
+    return 9 if v_idx_label == 'M' else 1
+
+#tets that dont work for late pruning !
+
+
+
+v must be a part of train test. Thus we need to split train into 2 groups: actual training group and validation group.
+I started from taking first 50 indices of train for validation because it seemed to me
+a logical number, and the rest to actual training.
+Then each iteration i took the 50 next indices from the actual train group and add them to the validation group,  
+until 50 indexes left in the train group. 
+
+# def chooseTrainExperiment():
+#     # experiment_id3 = CostSensitiveID3(is_early_pruning=False, limit=None, predict_dict=id_three.train_group_dict)
+#     # threshold = 1
+#     # ###loss is between 0 to 1 thus if i intialized it to that value to be sure best_loss will be updated in first iteration.
+#     # best_loss = 2
+#     # best_threshold = 1
+#     # train_group_len = len(id_three.train_row_indices)
+#     #
+#     # while train_group_len-threshold >= 30:
+#     #
+#     #
+#     #     experiment_id3.fit(id_three.train_row_indices[threshold:])
+#     #     experiment_id3.decision_tree = experiment_id3.latePruning(experiment_id3.decision_tree, id_three.train_row_indices[:50])
+#     #     cur_loss = experiment_id3.predictLoss(id_three.train_row_indices[50:100])
+#     #     if cur_loss < best_loss:
+#     #         best_loss = cur_loss
+#     #         best_threshold = threshold
+#     #     threshold += 50
+#     # print(best_threshold)
+#     # print(best_loss)
+#
+#     always first 50 indices are using for validation group, and the 50 after them to check loss"
+#     experiment_id3 = CostSensitiveID3(is_early_pruning=False, limit=None, predict_dict=id_three.train_group_dict)
+#     experiment with train with size 100
+#     best_loss = 2
+#     best_vector = None
+#     for i in range(50):
+#         id3_inst_train_indices = random.sample(id_three.train_row_indices[100:], 100)
+#         experiment_id3.fit(id3_inst_train_indices)
+#         #experiment_id3.decision_tree = experiment_id3.latePruning(experiment_id3.decision_tree, id_three.train_row_indices[:50])
+#         cur_loss = experiment_id3.predictLoss(id_three.train_row_indices[50:100])
+#         if cur_loss < best_loss:
+#             best_loss = cur_loss
+#             best_vector = id3_inst_train_indices
+#     return best_vector
+
+"""

@@ -1,25 +1,13 @@
 import ID3 as id_three
 import random
 import numpy as np
-import time
 
-N=9
-K=5
-P=0.3
-train_size = len(id_three.train_row_indices)
-
-
-# todo: what experiments?
-# todo: train data preprocessing?
-# todo: delete time import and time in main
 """
 # I chose to use Id3 tree with no early pruning because i 
 """
 
-id3_global_list=[]
-
 class ForestID3(id_three.ID3):
-    def __init__(self,  is_early_pruning, limit, predict_dict, ):
+    def __init__(self,  is_early_pruning, limit, predict_dict):
         id_three.ID3.__init__(self,limit=limit, is_early_pruning= is_early_pruning, predict_dict= predict_dict)
         self.centroid = None
 
@@ -40,62 +28,85 @@ def calaulateMajorityClass(classify_results):
             b += 1
     return 'M' if m > b else 'B'
 
-def fit():
-    for i in range(N):
-        id3_global_list.append(ForestID3(is_early_pruning=False, limit=None, predict_dict=id_three.test_group_dict))
-    for id3_inst in id3_global_list:
-        id3_inst_train_indices = random.sample(id_three.train_row_indices, int(P*train_size))
-        id3_inst.fit(id3_inst_train_indices)
-        id3_inst.setCentroid(id3_inst_train_indices)
+class KNNForest:
+    def __init__(self, n, k, p, predict_dict, actual_train_indices, actual_test_indices):
+        self.trees_list = []
+        self.N = n
+        self.K = k
+        self.P = p
+        self.predict_dict = predict_dict
+        self.actual_train_indices = actual_train_indices
+        self.actual_test_indices = actual_test_indices
 
-def chooseKnnTreesIndices(e_idx):
-    index_and_dist = []
-    e_idx_values = [id_three.test_group_dict[f][e_idx] for f in id_three.features]
-    for idx in range(len(id3_global_list)):
-        index_and_dist.append((idx, np.linalg.norm(np.array(id3_global_list[idx].centroid) - np.array(e_idx_values))))
-    index_and_dist.sort(key = lambda x: x[1])
-    indices = []
-    for i in range(K):
-        indices.append(index_and_dist[i][0])
-    return indices
+    def fit(self):
+        for i in range(self.N):
+            self.trees_list.append(ForestID3(is_early_pruning=False, limit=None, predict_dict=self.predict_dict))
+        for id3_inst in self.trees_list:
+            id3_inst_train_indices = random.sample(self.actual_train_indices, int(self.P * len(self.actual_train_indices)))
+            id3_inst.fit(id3_inst_train_indices)
+            id3_inst.setCentroid(id3_inst_train_indices)
 
+    def chooseKnnTreesIndices(self, e_idx):
+        index_and_dist = []
+        e_idx_values = [self.predict_dict[f][e_idx] for f in id_three.features]
+        for idx in range(len(self.trees_list)):
+            index_and_dist.append(
+                (idx, np.linalg.norm(np.array(self.trees_list[idx].centroid) - np.array(e_idx_values))))
+        index_and_dist.sort(key=lambda x: x[1])
+        indices = []
+        for i in range(self.K):
+            indices.append(index_and_dist[i][0])
+        return indices
 
+    def predict(self):
+        examples_num = len(self.actual_test_indices)
+        corrects_num = 0
 
-
-
-
-def predict():
-    examples_num = len(id_three.test_row_indices)
-    corrects_num = 0
-
-    for e_idx in id_three.test_row_indices:
-        knn_indices = chooseKnnTreesIndices(e_idx)
-        classify_results=[]
-        for tree_idx in knn_indices:
-            tree = id3_global_list[tree_idx]
-            classify_results.append(tree.classifier(e_idx,tree.decision_tree))
-        if calaulateMajorityClass(classify_results) == id_three.test_group_dict["diagnosis"][e_idx]:
-            corrects_num+=1
-    return corrects_num / examples_num
-
+        for e_idx in self.actual_test_indices:
+            knn_indices = self.chooseKnnTreesIndices(e_idx)
+            classify_results = []
+            for tree_idx in knn_indices:
+                tree = self.trees_list[tree_idx]
+                classify_results.append(tree.classifier(e_idx, tree.decision_tree))
+            if calaulateMajorityClass(classify_results) == self.predict_dict["diagnosis"][e_idx]:
+                corrects_num += 1
+        return corrects_num / examples_num
 
 # i used this function to determine best N and K
 # here i can combine all data
 
+
+"""Below is my experiment to set the best parameters for the algorithm:
+   In every iteration I used the first 50 indices of train as validation group to calculate the precision on it,
+   and use different third of n,k,p in the end i chose the third with the best precision to the algorithm"""
+
 def experiments():
-    N = 1
-    K=1
-    P=1
-    fit()
-    print(predict())
+    best_precision = -1
+    best_parameters = None, None, None
+    for n in range(2,11):
+        for k in range(2,n+1):
+            for p in [0.3,0.5,0.7,0.8]:
+                forest = KNNForest(n, k, p, predict_dict=id_three.train_group_dict,
+                                   actual_train_indices= id_three.train_row_indices[50:],
+                                   actual_test_indices=id_three.train_row_indices[:50])
+                forest.fit()
+                if forest.predict() > best_precision:
+                    best_parameters = n,k,p
+    return best_parameters
 
 
+"""
+main run time is 20 sec
+the comment line in main is the experiment i use to calculate best parameters
+"""
 def main():
-    #start = time.time()
-    fit()
-    print(predict())
-    experiments()
-    #print(time.time()-start)
+    #print(experiments())
+    forest = KNNForest(10, 10, 0.8, predict_dict=id_three.test_group_dict,
+                       actual_train_indices=id_three.train_row_indices,
+                       actual_test_indices=id_three.test_row_indices)
+    forest.fit()
+    print(forest.predict())
+
 
 if __name__ == "__main__":
     main()
