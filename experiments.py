@@ -7,14 +7,9 @@ train_group_dict = df.to_dict(orient='list')
 # features = df.columns
 # features.pop(0)
 
+
+
 # l = df.loc[0]
-
-
-r=[3,4,4]
-t={r}
-
-print(t)
-
 # vec1=[]
 # vec2=[]
 # for i in range(9):

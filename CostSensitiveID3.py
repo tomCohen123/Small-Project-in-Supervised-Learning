@@ -66,7 +66,8 @@ def filterTrainDataByEuclideanDist(euclidean_dist_threshold, filter_start_idx):
 in the experiments i use k fold valdiation on train group  with k= 5 to choose:
 1.best threshold for determining if node is consistent (i use it to determine if a node is a leaf and for entropy calculation
 2.best minimum Euclidean distance for removing 2 examples that are closer than that distance and have different labels,
-I do both searches to decrease over fitting to train data set.      
+I do both searches to decrease over fitting to train data set. 
+If you want to do the experiment uncomment the print(experiment()) line in main.      
 """
 def experiments():
     """1. - best threshold experiment"""
@@ -123,7 +124,7 @@ def main():
     id3.fit(list(set(id_three.train_row_indices)-filterTrainDataByEuclideanDist(200, 0)))
     id3.predict_dict=id_three.test_group_dict
     print(id3.predictLoss(id_three.test_row_indices))
-    print(experiments())
+    # print(experiments())
 
 
 if __name__ == "__main__":

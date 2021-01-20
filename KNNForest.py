@@ -18,15 +18,7 @@ class ForestID3(id_three.ID3):
             centroid.append(np.average(f_values))
         self.centroid = centroid
 
-def calaulateMajorityClass(classify_results):
-    m = 0
-    b = 0
-    for diagnosis in classify_results:
-        if diagnosis == 'M':
-            m += 1
-        else:
-            b += 1
-    return 'M' if m > b else 'B'
+
 
 class KNNForest:
     def __init__(self, n, k, p, predict_dict, actual_train_indices, actual_test_indices):
@@ -37,6 +29,16 @@ class KNNForest:
         self.predict_dict = predict_dict
         self.actual_train_indices = actual_train_indices
         self.actual_test_indices = actual_test_indices
+
+    def calculateMajorityClass(self,classify_results):
+        m = 0
+        b = 0
+        for diagnosis in classify_results:
+            if diagnosis == 'M':
+                m += 1
+            else:
+                b += 1
+        return 'M' if m > b else 'B'
 
     def fit(self):
         for i in range(self.N):
@@ -68,7 +70,7 @@ class KNNForest:
             for tree_idx in knn_indices:
                 tree = self.trees_list[tree_idx]
                 classify_results.append(tree.classifier(e_idx, tree.decision_tree))
-            if calaulateMajorityClass(classify_results) == self.predict_dict["diagnosis"][e_idx]:
+            if self.calculateMajorityClass(classify_results) == self.predict_dict["diagnosis"][e_idx]:
                 corrects_num += 1
         return corrects_num / examples_num
 
@@ -83,15 +85,15 @@ class KNNForest:
 def experiments():
     best_precision = -1
     best_parameters = None, None, None
-    for n in range(2,11):
-        for k in range(2,n+1):
-            for p in [0.3,0.5,0.7,0.8]:
+    for n in range(2, 11):
+        for k in range(2, n + 1):
+            for p in [0.3, 0.5, 0.6, 0.7]:
                 forest = KNNForest(n, k, p, predict_dict=id_three.train_group_dict,
-                                   actual_train_indices= id_three.train_row_indices[50:],
+                                   actual_train_indices=id_three.train_row_indices[50:],
                                    actual_test_indices=id_three.train_row_indices[:50])
                 forest.fit()
                 if forest.predict() > best_precision:
-                    best_parameters = n,k,p
+                    best_parameters = n, k, p
     return best_parameters
 
 
@@ -101,7 +103,8 @@ the comment line in main is the experiment i use to calculate best parameters
 """
 def main():
     #print(experiments())
-    forest = KNNForest(10, 10, 0.8, predict_dict=id_three.test_group_dict,
+    #todo: verifay that below is best parameters
+    forest = KNNForest(10, 10, 0.7, predict_dict=id_three.test_group_dict,
                        actual_train_indices=id_three.train_row_indices,
                        actual_test_indices=id_three.test_row_indices)
     forest.fit()
