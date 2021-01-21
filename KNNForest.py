@@ -44,7 +44,7 @@ class KNNForest:
         for i in range(self.N):
             self.trees_list.append(ForestID3(is_early_pruning=False, limit=None, predict_dict=self.predict_dict))
         for id3_inst in self.trees_list:
-            id3_inst_train_indices = random.sample(self.actual_train_indices, int(self.P * len(self.actual_train_indices)))
+            id3_inst_train_indices = random.sample(list(self.actual_train_indices), int(self.P * len(self.actual_train_indices)))
             id3_inst.fit(id3_inst_train_indices)
             id3_inst.setCentroid(id3_inst_train_indices)
 
@@ -103,7 +103,7 @@ the comment line in main is the experiment i use to calculate best parameters
 """
 def main():
     #print(experiments())
-    #todo: verifay that below is best parameters
+    #todo: verifay that below is best parameters and that you really improve
     forest = KNNForest(10, 10, 0.7, predict_dict=id_three.test_group_dict,
                        actual_train_indices=id_three.train_row_indices,
                        actual_test_indices=id_three.test_row_indices)

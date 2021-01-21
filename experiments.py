@@ -7,7 +7,7 @@ train_group_dict = df.to_dict(orient='list')
 # features = df.columns
 # features.pop(0)
 
-
+print(range(0.3,0.7,0.1))
 
 # l = df.loc[0]
 # vec1=[]
