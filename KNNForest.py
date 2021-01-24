@@ -1,7 +1,7 @@
 import ID3 as id_three
 import random
 import numpy as np
-
+#todo check that everything works with diffrent databases sizes
 """
 # I chose to use Id3 tree with no early pruning because i 
 """
