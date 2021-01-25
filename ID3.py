@@ -3,13 +3,7 @@ import numpy as np
 from sklearn.model_selection import KFold
 import matplotlib.pyplot as plt
 
-######### important thoughts ##############
-
-# we dont have empty leaf problem
-# we uses all features in every step to calc max_ig
-
 M_values = [1, 3, 9, 15, 30, 45, 60, 90]
-#todo: change back to oringinal train and test
 
 train_group = pd.read_csv("train.csv")
 test_group = pd.read_csv("test.csv")
@@ -29,7 +23,6 @@ class Node:
         self.barrier = barrier
         self.l_son = l_son
         self.r_son = r_son
-
 
 class ID3:
     def __init__(self, limit, is_early_pruning, predict_dict):
@@ -153,7 +146,7 @@ class ID3:
             arg2 = prob_healthy*np.log2(prob_healthy)
         return -(arg1 + arg2)
 
-#############end_of_class_id3####################################
+"""helpers for id3"""
 
 def splitIndexs(f, barrier, examples_indices):
     smaller_examples_indices = []
@@ -165,10 +158,20 @@ def splitIndexs(f, barrier, examples_indices):
             bigger_equale_examples_indices.append(idx)
     return smaller_examples_indices, bigger_equale_examples_indices
 
+def create_experiment(train_row_indices, test_row_indices,  M, is_earlly_pruning=True, predict_dict= train_group_dict):
+    id3 = ID3(is_early_pruning=is_earlly_pruning, limit = M, predict_dict=predict_dict)
+    id3.fit(train_row_indices)
+    return id3.predict(test_row_indices)
 
-##end_of_helpers_for_id3
+def checkID3WithBestMLoss():
+    # because best M is 1 I run Id3 algo with no pruning
+    id3 = ID3(limit= None, is_early_pruning= False, predict_dict=test_group_dict)
+    id3.fit(train_row_indices)
+    print("ID3 loss before improvment is", id3.predictLoss(test_row_indices))
+
 """
-To run uncomment the line with experiment() in mine 
+best M-determining experiment:
+To run uncomment the line: experiment(), in main
 Finds best M and runs id3 with it and prints its accuracy 
 """
 
@@ -197,27 +200,11 @@ def experiment():
     ax.set(xlabel='Min examples for node decision', ylabel='Accuracy', title='Accuracy By M')
     plt.show()
 
-def create_experiment(train_row_indices, test_row_indices,  M, is_earlly_pruning=True, predict_dict= train_group_dict):
-    id3 = ID3(is_early_pruning=is_earlly_pruning, limit = M, predict_dict=predict_dict)
-    id3.fit(train_row_indices)
-    return id3.predict(test_row_indices)
-
-def checkID3WithBestMLoss():
-    # because best M is 1 I run Id3 algo with no pruning
-    id3 = ID3(limit= None, is_early_pruning= False, predict_dict=test_group_dict)
-    id3.fit(train_row_indices)
-    print("ID3 loss before improvment is", id3.predictLoss(test_row_indices))
-
-
-
 def main():
     print(create_experiment(train_row_indices, test_row_indices, None, False, test_group_dict))
     #experiment()
+    """for question 4.1"""
     #checkID3WithBestMLoss()
-
-
-
-
 
 if __name__ == "__main__":
     main()

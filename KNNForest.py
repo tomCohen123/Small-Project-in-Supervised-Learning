@@ -1,10 +1,9 @@
 import ID3 as id_three
 import random
 import numpy as np
-#todo check that everything works with diffrent databases sizes
-"""
-# I chose to use Id3 tree with no early pruning because i 
-"""
+from sklearn.model_selection import KFold
+
+"""Each Tree in the forest is Ide with no early pruning because i found it is better"""
 
 class ForestID3(id_three.ID3):
     def __init__(self,  is_early_pruning, limit, predict_dict):
@@ -74,42 +73,41 @@ class KNNForest:
                 corrects_num += 1
         return corrects_num / examples_num
 
-# i used this function to determine best N and K
-# here i can combine all data
 
 
-"""Below is my experiment to set the best parameters for the algorithm:
-   In every iteration I used the first 50 indices of train as validation group to calculate the precision on it,
-   and use different third of n,k,p in the end i chose the third with the best precision to the algorithm"""
+
+"""Below is my experiment to set the best parameters for the algorithm, i am using k-fold to estimate the perscion
+    of every parameters groups and returns the one which maximaize the precision"""
 
 def experiments():
     best_precision = -1
     best_parameters = None, None, None
-    for n in range(2, 11):
+    kf = KFold(n_splits=5, shuffle=True, random_state=204576946)
+    for n in range(2, 10):
         for k in range(2, n + 1):
-            for p in [0.3, 0.5, 0.6, 0.7]:
-                forest = KNNForest(n, k, p, predict_dict=id_three.train_group_dict,
-                                   actual_train_indices=id_three.train_row_indices[50:],
-                                   actual_test_indices=id_three.train_row_indices[:50])
-                forest.fit()
-                if forest.predict() > best_precision:
+            for p in [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7]:
+                precisions_for_specific_third = []
+                for train_index, test_index in kf.split(id_three.train_group):
+                    forest = KNNForest(n, k, p, predict_dict=id_three.train_group_dict,
+                                                       actual_train_indices=train_index,
+                                                       actual_test_indices=test_index)
+                    forest.fit()
+                    precisions_for_specific_third.append(forest.predict())
+                if np.average(precisions_for_specific_third) > best_precision:
                     best_parameters = n, k, p
     return best_parameters
 
 
 """
-main run time is 20 sec
-the comment line in main is the experiment i use to calculate best parameters
+the commented line in main is the experiment i use to calculate best parameters
 """
 def main():
     #print(experiments())
-    #todo: verifay that below is best parameters and that you really improve
-    forest = KNNForest(10, 10, 0.7, predict_dict=id_three.test_group_dict,
+    forest = KNNForest(9, 9, 0.7, predict_dict=id_three.test_group_dict,
                        actual_train_indices=id_three.train_row_indices,
                        actual_test_indices=id_three.test_row_indices)
     forest.fit()
     print(forest.predict())
-
 
 if __name__ == "__main__":
     main()

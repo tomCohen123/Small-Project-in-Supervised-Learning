@@ -119,11 +119,11 @@ def experiments():
 
 def main():
     # because my optimal m was 1, it means no prune, i use the algorithm with no pruning
-    id3 = CostSensitiveID3(is_early_pruning=False, limit=None, predict_dict=id_three.train_group_dict,
+    id3 = CostSensitiveID3(is_early_pruning=False, limit=None, predict_dict=id_three.test_group_dict,
                            consistent_node_threshold=0.99)
     id3.fit(list(set(id_three.train_row_indices)-filterTrainDataByEuclideanDist(200, 0)))
-    id3.predict_dict=id_three.test_group_dict
     print(id3.predictLoss(id_three.test_row_indices))
+    """the commented line ran the experiment i did to determine algorithm parameters"""
     # print(experiments())
 
 
